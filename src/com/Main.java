@@ -1,4 +1,8 @@
+package com;
+
 import example.*;
+
+import java.util.Arrays;
 
 
 public class Main {
@@ -8,10 +12,11 @@ public class Main {
         //System.out.println("---------------------------------------------------------------------");
         //ExampleMCMC.show();
         //System.out.println("---------------------------------------------------------------------");
-        ExampleMCMC.regression();
+        //ExampleMCMC.regression();
         //System.out.println("---------------------------------------------------------------------");
         //ExampleSIR.show();
         System.out.println("---------------------------------------------------------------------");
-        //ExamplePCore.show();
+        ExamplePCore.show();
+        //System.out.printf(Arrays.toString("A".split("#", 2)));
     }
 }

@@ -4,9 +4,7 @@ import pcore.distribution.IDistribution;
 import pcore.loci.DistributionLoci;
 import pcore.loci.Loci;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  *
@@ -23,10 +21,10 @@ public class BayesianModel implements IParameterModel{
     private boolean NeedsMC;
     private Map<String, Double> InputData;
 
-    public BayesianModel(DirectedAcyclicGraph dag, List<String> med, List<String> evi) {
+    public BayesianModel(DirectedAcyclicGraph dag, Collection<String> evi) {
         DAG = dag;
-        Mediator = med;
-        Evidence = evi;
+        Evidence = new ArrayList<>(evi);
+        Mediator = findMediators();
         NeedsMC = Mediator.stream().anyMatch(DAG::isDistribution);
         InputData = new HashMap<>();
     }
@@ -129,5 +127,25 @@ public class BayesianModel implements IParameterModel{
         DAG.print();
         System.out.println("Mediator:"+ Mediator);
         System.out.println("Evidence:"+ Evidence);
+    }
+
+    private List<String> findMediators() {
+        Set<String> des = new HashSet<>();
+        String last = "";
+        for (String loci: DAG.getOrder()) {
+            if (Evidence.contains(loci) | des.contains(loci)) {
+                des.addAll(DAG.getChildren(loci));
+                last = loci;
+            }
+        }
+
+        List<String> med = new ArrayList<>();
+        for (String loci: des) {
+            if (loci.equals(last)) break;
+            if (!Evidence.contains(loci)) {
+                med.add(loci);
+            }
+        }
+        return med;
     }
 }

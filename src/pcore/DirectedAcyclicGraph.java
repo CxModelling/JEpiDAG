@@ -16,18 +16,20 @@ import java.util.*;
 public class DirectedAcyclicGraph {
     private static int NumDAG = 0;
     private final static HashMap<String, Double> NullCon = new HashMap<>();
-    private String Name;
+    private final String Name;
     private Map<String, Loci> Locus;
     private String[] Order;
-    private int Depth;
+    private final int Depth;
     private Map<String, Set<LinkedList<String>>> Pathways;
     private List<String> Roots, Leaves;
+    private final JSONObject Source;
 
     public DirectedAcyclicGraph(String script) throws ScriptException {
         this(scriptToJson(script));
     }
 
     public DirectedAcyclicGraph(JSONObject js) throws ScriptException {
+        Source = js;
         Name = js.getString("Name");
         Depth = js.getInt("Depth");
         restoreLocus(js.getJSONObject("Nodes"), js.getJSONArray("Order"));
@@ -136,24 +138,7 @@ public class DirectedAcyclicGraph {
     }
 
     public BayesianModel getBayesianModel(Collection<String> evi) {
-        Set<String> des = new HashSet<>();
-        String last = "";
-        for (String loci: Order) {
-            if (evi.contains(loci) | des.contains(loci)) {
-                des.addAll(getChildren(loci));
-                last = loci;
-            }
-        }
-
-        List<String> med = new ArrayList<>();
-        for (String loci: des) {
-            if (loci.equals(last)) break;
-            if (!evi.contains(loci)) {
-                med.add(loci);
-            }
-        }
-
-        return new BayesianModel(this, med, evi.stream().collect(Collectors.toList()));
+        return new BayesianModel(this, evi);
     }
 
     public SimulationModel getSimulationModel() {
@@ -221,16 +206,7 @@ public class DirectedAcyclicGraph {
     }
 
     public JSONObject toJSON() {
-        JSONObject js = new JSONObject(), nodes = new JSONObject();
-        for (Map.Entry<String, Loci> ent: Locus.entrySet()) {
-            nodes.put(ent.getKey(), ent.getValue().toJSON());
-        }
-
-        js.put("Name", Name);
-        js.put("Nodes", nodes);
-        js.put("Order", new JSONArray(Order));
-        js.put("Depth", Depth);
-        return js;
+        return Source;
     }
 
     private void restoreLocus(JSONObject nodes, JSONArray order) {
@@ -275,21 +251,32 @@ public class DirectedAcyclicGraph {
         HashMap<String, JSONObject> nodes = new HashMap<>();
 
         String[] lines = script.split("\n"), pair;
+        String def, com;
         try {
             for (String line: lines) {
-                line = line.replaceAll("\\s+", "");
-                if (line.toUpperCase().indexOf("PCORE") == 0) {
-                    line = line.replaceAll("(?i)PCORE", "");
-                    js.put("Name", line.split("\\{")[0]);
-                } else if (line.contains("~")) {
-                    pair = line.split("~");
+                if (line.contains("#")) {
+                    pair = line.split("#", 2);
+                    def = pair[0];
+                    com = pair[1];
+                } else {
+                    def = line;
+                    com = "";
+                }
+
+                def = def.replaceAll("\\s+", "");
+                if (def.toUpperCase().indexOf("PCORE") == 0) {
+                    def = def.replaceAll("(?i)PCORE", "");
+                    js.put("Name", def.split("\\{")[0]);
+                } else if (def.contains("~")) {
+                    pair = def.split("~");
                     node = new JSONObject();
                     node.put("Type", "Distribution");
                     node.put("Def", pair[1]);
                     node.put("Parents", DistributionLoci.parseParents(pair[1]));
+                    if (!com.equals("")) node.put("Note", com);
                     nodes.put(pair[0], node);
-                } else if (line.contains("=")) {
-                    pair = line.split("=");
+                } else if (def.contains("=")) {
+                    pair = def.split("=");
                     node = new JSONObject();
                     try {
                         double d = Double.parseDouble(pair[1]);
@@ -300,6 +287,7 @@ public class DirectedAcyclicGraph {
                         node.put("Def", pair[1]);
                         node.put("Parents", FunctionLoci.parseParents(pair[1]));
                     } finally {
+                        if (!com.equals("")) node.put("Note", com);
                         nodes.put(pair[0], node);
                     }
                 }

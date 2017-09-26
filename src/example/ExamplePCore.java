@@ -11,7 +11,7 @@ public class ExamplePCore {
     public static void show() {
         String Script = "PCore RR{\n"
                 + "rate = 0.05\n"
-                + "rr ~ unif(1, 1.5)\n"
+                + "rr ~ unif(1, 1.5) # comment\n"
                 + "tr1 ~ exp(rate)\n"
                 + "tr2 ~ exp(rate*rr)\n"
                 + "}";
@@ -28,6 +28,7 @@ public class ExamplePCore {
 
             ParameterCore Core2 = Model.sampleCore();
             System.out.println(Core.findDifference(Core2));
+            System.out.println(Model.getDAG().toJSON().toString(2));
         } catch (ScriptException e) {
             e.printStackTrace();
         }

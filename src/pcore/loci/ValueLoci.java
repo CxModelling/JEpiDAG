@@ -55,12 +55,12 @@ public class ValueLoci extends Loci {
 
     @Override
     public String getDefinition() {
-        return getName() + "="+ Value;
+        return getName() + "= "+ Value;
     }
 
     @Override
     public String toString() {
-        return getName() + ":"+ Value;
+        return getName() + ": "+ Value;
     }
 
     @Override

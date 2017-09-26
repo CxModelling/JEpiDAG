@@ -43,6 +43,15 @@ public class ParameterCore extends Gene {
         return new Gene(locus);
     }
 
+    public Gene fixLeaves() {
+        Map<String, Double> locus = new HashMap<>();
+        locus.putAll(this.getLocus());
+        for (Map.Entry<String, IDistribution> ent: Distributions.entrySet()) {
+            locus.put(ent.getKey(), ent.getValue().getMean());
+        }
+        return new Gene(locus);
+    }
+
     public ParameterCore clone() {
         return (ParameterCore) super.clone();
     }
