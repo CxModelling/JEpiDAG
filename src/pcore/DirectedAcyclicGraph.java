@@ -1,0 +1,349 @@
+package pcore;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
+import pcore.distribution.IDistribution;
+import pcore.loci.*;
+
+import java.util.stream.Collectors;
+import java.util.*;
+
+
+/**
+ *
+ * Created by TimeWz on 2017/4/21.
+ */
+public class DirectedAcyclicGraph {
+    private static int NumDAG = 0;
+    private final static HashMap<String, Double> NullCon = new HashMap<>();
+    private String Name;
+    private Map<String, Loci> Locus;
+    private String[] Order;
+    private int Depth;
+    private Map<String, Set<LinkedList<String>>> Pathways;
+    private List<String> Roots, Leaves;
+
+    public DirectedAcyclicGraph(String script) throws ScriptException {
+        this(scriptToJson(script));
+    }
+
+    public DirectedAcyclicGraph(JSONObject js) throws ScriptException {
+        Name = js.getString("Name");
+        Depth = js.getInt("Depth");
+        restoreLocus(js.getJSONObject("Nodes"), js.getJSONArray("Order"));
+        Leaves = Locus.keySet().stream().filter(e->getChildren(e).isEmpty()).collect(Collectors.toList());
+        Roots = Locus.keySet().stream().filter(e->getParents(e).isEmpty()).collect(Collectors.toList());
+    }
+
+    public String getName() {
+        return Name;
+    }
+
+    public Loci getLoci(String loci) {
+        return Locus.get(loci);
+    }
+
+    public String[] getOrder() {
+        return Order;
+    }
+
+    public List<String> getRoots() {
+        return Roots;
+    }
+
+    public List<String> getLeaves() {
+        return Leaves;
+    }
+
+    public Map<String, Set<LinkedList<String>>> getPathways() {
+        if (Pathways == null) {
+            findPathways();
+        }
+        return Pathways;
+    }
+
+    public Map<String, Double> sample() {
+        return sample(NullCon);
+    }
+
+    public Map<String, Double> sample(Map<String, Double> cond) {
+        Map<String, Double> vs = new HashMap<>();
+        double value;
+        for (String loci: Order) {
+            if (cond.containsKey(loci)) {
+                value = cond.get(loci);
+            } else {
+                value = Locus.get(loci).sample(vs);
+            }
+            vs.put(loci, value);
+        }
+        return vs;
+    }
+
+
+    public Map<String, IDistribution> sampleLeaves() {
+        return sampleLeaves(NullCon);
+    }
+
+    public Map<String, IDistribution> sampleLeaves(Map<String, Double> cond) {
+        Map<String, Double> vs = new HashMap<>();
+        Map<String, IDistribution> ds = new HashMap<>();
+        double value;
+
+        for (String loci: Order) {
+            if (Leaves.contains(loci)) {
+                ds.put(loci, ((DistributionLoci) Locus.get(loci)).findDistribution(vs));
+                continue;
+            } else if (cond.containsKey(loci)) {
+                value = cond.get(loci);
+            } else {
+                value = Locus.get(loci).sample(vs);
+            }
+            vs.put(loci, value);
+        }
+        return ds;
+    }
+
+    public double evaluate(Map<String, Double> vs) {
+        return Locus.values().stream()
+                .filter(e->vs.containsKey(e.getName()))
+                .mapToDouble(e->e.evaluate(vs))
+                .sum();
+    }
+
+    public boolean isDistribution(String m) {
+        return Locus.get(m) instanceof DistributionLoci;
+    }
+
+    public Collection<String> getChildren(String src) {
+        return Locus.values().stream()
+                .filter(e->e.getParents().contains(src))
+                .map(Loci::getName)
+                .collect(Collectors.toList());
+    }
+
+    public Collection<String> getDescendants(String src) {
+        Set<String> des = new HashSet<>();
+        getPathways().get(src)
+                .forEach(e->des.addAll(e.stream()
+                        .filter(v->!v.equals(src))
+                        .collect(Collectors.toList())));
+        return des;
+    }
+
+    public Collection<String> getParents(String src) {
+        return Locus.get(src).getParents();
+    }
+
+    public BayesianModel getBayesianModel(Collection<String> evi) {
+        Set<String> des = new HashSet<>();
+        String last = "";
+        for (String loci: Order) {
+            if (evi.contains(loci) | des.contains(loci)) {
+                des.addAll(getChildren(loci));
+                last = loci;
+            }
+        }
+
+        List<String> med = new ArrayList<>();
+        for (String loci: des) {
+            if (loci.equals(last)) break;
+            if (!evi.contains(loci)) {
+                med.add(loci);
+            }
+        }
+
+        return new BayesianModel(this, med, evi.stream().collect(Collectors.toList()));
+    }
+
+    public SimulationModel getSimulationModel() {
+        return new SimulationModel(this);
+    }
+
+    public CausalDiagram getCausalDiagram() {
+        return new CausalDiagram(this);
+    }
+
+
+    private void findPathways() {
+        TreeMap<String, LinkedList<String>> ch = new TreeMap<>();
+        for (String k: Order) {
+            ch.put(k, new LinkedList<>(getChildren(k)));
+        }
+
+        Pathways = new TreeMap<>();
+        HashSet<LinkedList<String>> ps, temp0, temp1;
+        LinkedList<String> cs, p;
+
+        for (String k: Order) {
+            ps = new HashSet<>();
+            temp0 = new HashSet<>();
+            cs = new LinkedList<>();
+            cs.add(k);
+            temp0.add(cs);
+            temp1 = new HashSet<>();
+            while (temp0.size() > 0) {
+                for (LinkedList<String> path: temp0) {
+                    cs = ch.get(path.getLast());
+                    if (cs.size() == 0) {
+                        ps.add(path);
+                    } else {
+                        for (String chd: cs) {
+                            p = new LinkedList<>(path);
+                            p.add(chd);
+                            temp1.add(p);
+                        }
+                    }
+                }
+                temp0 = temp1;
+                temp1 = new HashSet<>();
+            }
+            Pathways.put(k, ps);
+        }
+
+    }
+
+    public void print() {
+        System.out.println("Nodes:");
+        for (String loci: Order) {
+            System.out.println("\t"+Locus.get(loci));
+        }
+        System.out.println("Roots:"+ Roots);
+        System.out.println("Leaves:"+ Leaves);
+    }
+
+    public String toString() {
+        String s = "Nodes:\n";
+        for (String loci: Order) {
+            s += "\t"+Locus.get(loci);
+        }
+        return s;
+    }
+
+    public JSONObject toJSON() {
+        JSONObject js = new JSONObject(), nodes = new JSONObject();
+        for (Map.Entry<String, Loci> ent: Locus.entrySet()) {
+            nodes.put(ent.getKey(), ent.getValue().toJSON());
+        }
+
+        js.put("Name", Name);
+        js.put("Nodes", nodes);
+        js.put("Order", new JSONArray(Order));
+        js.put("Depth", Depth);
+        return js;
+    }
+
+    private void restoreLocus(JSONObject nodes, JSONArray order) {
+        JSONObject loc;
+        String nd;
+
+        Locus = new TreeMap<>();
+        Order = new String[order.length()];
+
+        for (int i = 0; i < order.length(); i++) {
+            nd = order.getString(i);
+            Order[i] = nd;
+            loc = nodes.getJSONObject(nd);
+            Locus.put(nd, restoreLoci(nd, loc));
+        }
+    }
+
+    private Loci restoreLoci(String nd, JSONObject loc) {
+        switch (loc.getString("Type")) {
+            case "Distribution":
+                return new DistributionLoci(nd, loc.getString("Def"),
+                        toList(loc.getJSONArray("Parents")));
+            case "Function":
+                return new FunctionLoci(nd, loc.getString("Def"),
+                        toList(loc.getJSONArray("Parents")));
+            case "Value":
+                return new ValueLoci(nd, loc.getDouble("Def"));
+        }
+        return null;
+    }
+
+    private List<String> toList(JSONArray ja) {
+        List<String> l = new ArrayList<>();
+        for (int i = 0; i < ja.length(); i++) {
+            l.add(ja.getString(i));
+        }
+        return l;
+    }
+
+    public static JSONObject scriptToJson(String script) {
+        JSONObject js = new JSONObject(), node;
+        HashMap<String, JSONObject> nodes = new HashMap<>();
+
+        String[] lines = script.split("\n"), pair;
+        try {
+            for (String line: lines) {
+                line = line.replaceAll("\\s+", "");
+                if (line.toUpperCase().indexOf("PCORE") == 0) {
+                    line = line.replaceAll("(?i)PCORE", "");
+                    js.put("Name", line.split("\\{")[0]);
+                } else if (line.contains("~")) {
+                    pair = line.split("~");
+                    node = new JSONObject();
+                    node.put("Type", "Distribution");
+                    node.put("Def", pair[1]);
+                    node.put("Parents", DistributionLoci.parseParents(pair[1]));
+                    nodes.put(pair[0], node);
+                } else if (line.contains("=")) {
+                    pair = line.split("=");
+                    node = new JSONObject();
+                    try {
+                        double d = Double.parseDouble(pair[1]);
+                        node.put("Type", "Value");
+                        node.put("Def", d);
+                    } catch (Exception e) {
+                        node.put("Type", "Function");
+                        node.put("Def", pair[1]);
+                        node.put("Parents", FunctionLoci.parseParents(pair[1]));
+                    } finally {
+                        nodes.put(pair[0], node);
+                    }
+                }
+            }
+        } catch (ScriptException e) {
+            e.printStackTrace();
+        }
+
+        ArrayList<String> odn = new ArrayList<>(), temp;
+        JSONArray ja;
+        int dep = 0;
+
+        while (odn.size() < nodes.size()) {
+            temp = new ArrayList<>();
+            for (Map.Entry<String, JSONObject> ent: nodes.entrySet()) {
+                if (odn.contains(ent.getKey())) continue;
+                if (!ent.getValue().has("Parents")) {
+                    temp.add(ent.getKey());
+                } else {
+                    ja = ent.getValue().getJSONArray("Parents");
+                    ArrayList<String> pars = new ArrayList<>();
+                    for (int i=0; i < ja.length(); i++) {
+                        pars.add(ja.getString(i));
+                    }
+                    if (odn.containsAll(pars)) {
+                        temp.add(ent.getKey());
+                    }
+                }
+            }
+            if (temp.isEmpty()) {
+                return null;
+            }
+            odn.addAll(temp);
+            dep ++;
+        }
+
+
+        if (!js.has("Name")) {
+            NumDAG ++;
+            js.put("Name", "PCore_"+NumDAG);
+        }
+        js.put("Nodes", nodes);
+        js.put("Order", odn);
+        js.put("Depth", dep);
+        return js;
+    }
+}
