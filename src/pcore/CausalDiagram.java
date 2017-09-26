@@ -4,6 +4,7 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  *
@@ -17,32 +18,41 @@ public class CausalDiagram implements IParameterModel {
         this.DAG = DAG;
     }
 
+    // Parents + children and coparents
     public Collection<String> getMarkovBlanket(String src) {
-        Set<String> mb = new HashSet<>();
-        Set<String> pa = new HashSet<>();
-        pa.add(src);
-        pa.addAll(DAG.getParents(src));
-        mb.forEach(mb::add);
-
-        pa.forEach(e->mb.addAll(DAG.getChildren(e)));
+        Set<String> mb = new HashSet<>(), chs = new HashSet<>();
+        chs.add(src);
+        chs.addAll(DAG.getChildren(src));
+        for (String ch: chs) {
+            mb.addAll(DAG.getParents(ch));
+        }
+        mb.addAll(chs);
         mb.remove(src);
-
         return mb;
     }
 
     public boolean isIdentifiable(Collection<String> impulse, Collection<String> response) {
+        // todo
+        return false;
+    }
+
+    public boolean getConfounders(Collection<String> impulse, Collection<String> response) {
+        // todo
         return false;
     }
 
     public double calculateDirectEffect(Map<String, Double> standard, Map<String, Double> intervention) {
+        // todo
         return 0;
     }
 
     public double calculateIndirectEffect(Map<String, Double> standard, Map<String, Double> intervention) {
+        // todo
         return 0;
     }
 
     public double calculateTotalEffect(Map<String, Double> standard, Map<String, Double> intervention) {
+        // todo
         return 0;
     }
 
