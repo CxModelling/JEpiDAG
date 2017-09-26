@@ -82,30 +82,6 @@ public class DirectedAcyclicGraph {
         return vs;
     }
 
-
-    public Map<String, IDistribution> sampleLeaves() {
-        return sampleLeaves(NullCon);
-    }
-
-    public Map<String, IDistribution> sampleLeaves(Map<String, Double> cond) {
-        Map<String, Double> vs = new HashMap<>();
-        Map<String, IDistribution> ds = new HashMap<>();
-        double value;
-
-        for (String loci: Order) {
-            if (Leaves.contains(loci)) {
-                ds.put(loci, ((DistributionLoci) Locus.get(loci)).findDistribution(vs));
-                continue;
-            } else if (cond.containsKey(loci)) {
-                value = cond.get(loci);
-            } else {
-                value = Locus.get(loci).sample(vs);
-            }
-            vs.put(loci, value);
-        }
-        return ds;
-    }
-
     public double evaluate(Map<String, Double> vs) {
         return Locus.values().stream()
                 .filter(e->vs.containsKey(e.getName()))
@@ -133,6 +109,17 @@ public class DirectedAcyclicGraph {
         return des;
     }
 
+    public Collection<String> getAscendants(String src) {
+        Set<String> as = new HashSet<>();
+        for (String nod: getOrder()) {
+            if (nod.equals(src))
+                break;
+            if (getPathways().get(src).stream().anyMatch(e->e.contains(src)))
+                as.add(nod);
+        }
+        return as;
+    }
+
     public Collection<String> getParents(String src) {
         return Locus.get(src).getParents();
     }
@@ -149,6 +136,10 @@ public class DirectedAcyclicGraph {
         return new CausalDiagram(this);
     }
 
+    public DirectedAcyclicGraph subgraph(Collection<String> inclusion) {
+        // todo
+        return null;
+    }
 
     private void findPathways() {
         TreeMap<String, LinkedList<String>> ch = new TreeMap<>();

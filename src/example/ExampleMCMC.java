@@ -76,7 +76,7 @@ public class ExampleMCMC {
         Map<String, Double> val = ca.sample();
         System.out.println(val);
         System.out.println(ca.evaluate(val));
-        System.out.println(ca.sampleLeaves());
+
 
         List<String> evi = new ArrayList<>();
         evi.add("x1");
