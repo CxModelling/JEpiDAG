@@ -14,7 +14,7 @@ import java.util.*;
  */
 public class SimulationModel implements IParameterModel {
     private final DirectedAcyclicGraph DAG;
-
+    private final static HashMap<String, Double> NullCon = new HashMap<>();
 
     public SimulationModel(DirectedAcyclicGraph dag) {
         DAG = dag;
@@ -33,7 +33,11 @@ public class SimulationModel implements IParameterModel {
     }
 
     public ParameterCore sampleCore() {
-        Map<String, Double> vs = new HashMap<>();
+        return sampleCore(NullCon);
+    }
+
+    public ParameterCore sampleCore(Map<String, Double> cond) {
+        Map<String, Double> vs = new HashMap<>(cond);
         Map<String, IDistribution> ds = new HashMap<>();
         Loci l;
         for (String loci: DAG.getOrder()) {
@@ -49,6 +53,7 @@ public class SimulationModel implements IParameterModel {
         Core.setLogPriorProb(DAG.evaluate(Core.getLocus()));
         return Core;
     }
+
 
 
     public List<ParameterCore> mutate(List<ParameterCore> pc) {

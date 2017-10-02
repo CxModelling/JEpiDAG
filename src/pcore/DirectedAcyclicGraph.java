@@ -2,7 +2,6 @@ package pcore;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
-import pcore.distribution.IDistribution;
 import pcore.loci.*;
 
 import java.util.stream.Collectors;
