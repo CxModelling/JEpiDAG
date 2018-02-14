@@ -37,7 +37,7 @@ public class AdaptorIntegerCommonsMath implements IDistribution {
         int i = 0;
         for (double s: D.sample(n)) {
             res[i] = s;
-            i ++;
+            i++;
         }
         return res;
     }
